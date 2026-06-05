@@ -5,8 +5,10 @@ export interface SubscriptionRecord {
   clerk_user_id: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  email: string | null;
   plan: string | null; // trial | monthly | annual
   status: string | null; // none | active | trialing | past_due | canceled | incomplete
+  trial_started_at: string | null;
   current_period_end: string | null;
 }
 

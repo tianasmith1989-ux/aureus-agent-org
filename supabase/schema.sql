@@ -62,8 +62,10 @@ create table if not exists subscriptions (
   clerk_user_id text unique not null,
   stripe_customer_id text unique,
   stripe_subscription_id text,
+  email text,                       -- billing email (used by the trial-email cron)
   plan text,                        -- trial | monthly | annual
   status text default 'none',       -- none | active | trialing | past_due | canceled | incomplete
+  trial_started_at timestamptz,     -- set when the $1 trial checkout completes
   current_period_end timestamptz,
   updated_at timestamptz default now()
 );

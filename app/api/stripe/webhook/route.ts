@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
           stripe_subscription_id: subId,
           plan,
           status: "active",
+          email: session.customer_details?.email ?? null,
+          // Anchor the 7-day email sequence at the trial checkout.
+          ...(plan === "trial" ? { trial_started_at: new Date().toISOString() } : {}),
         });
         break;
       }
