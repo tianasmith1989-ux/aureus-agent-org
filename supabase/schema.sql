@@ -1,7 +1,8 @@
--- Aureus Agent Org — database schema (Step 1)
--- Run this in the Supabase SQL editor for your Aureus project.
--- Mirrors the prototype's three persisted objects (profile, memory, calendar)
--- and adds real CRM tables used in later steps.
+-- Aureus Agent Org — database schema
+-- Run this in the Supabase SQL editor for the dedicated Agent-Org project
+-- (separate from the Aureus Plutus consumer app's database).
+-- Covers all of Steps 1–5: profile, brief memory, CRM, content calendar,
+-- Stripe subscriptions, and the trial-email idempotency log.
 
 -- One row per company; holds the editable profile the agents read.
 create table if not exists company (
