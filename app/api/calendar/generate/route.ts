@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
     id: `${Date.now()}-${i}`,
     ...n,
     posted: false,
+    status: "draft",
+    scheduled_at: null,
   }));
   return Response.json({ posts });
 }

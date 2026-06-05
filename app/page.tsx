@@ -42,6 +42,8 @@ interface Post {
   post: string;
   hashtags: string;
   posted: boolean;
+  status?: string;
+  scheduled_at?: string | null;
 }
 
 /* ───────────────────────── API helper ───────────────────────── */
@@ -157,6 +159,7 @@ export default function App() {
   const [calBusy, setCalBusy] = useState(false);
   const [calErr, setCalErr] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [schedTime, setSchedTime] = useState<Record<string, string>>({});
 
   const feedRef = useRef<HTMLElement | null>(null);
   const profileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,6 +287,28 @@ export default function App() {
       });
     } catch {
       /* keep optimistic state */
+    }
+  }
+
+  async function schedulePost(id: string) {
+    const t = schedTime[id];
+    if (!t) {
+      setCalErr("Pick a date/time to schedule.");
+      return;
+    }
+    const iso = new Date(t).toISOString();
+    setCalErr("");
+    setCalendar((c) =>
+      c.map((p) => (p.id === id ? { ...p, status: "scheduled", scheduled_at: iso } : p)),
+    );
+    try {
+      await api("/api/calendar/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, scheduled_at: iso }),
+      });
+    } catch (e: any) {
+      setCalErr(e?.message || "Failed to schedule.");
     }
   }
 
@@ -653,6 +678,26 @@ export default function App() {
                         </div>
                         <div style={S.postBody}>{p.post}</div>
                         {p.hashtags && <div style={S.postTags}>{p.hashtags}</div>}
+                        {!p.posted && (
+                          <div style={S.schedRow}>
+                            <input
+                              type="datetime-local"
+                              value={schedTime[p.id] || ""}
+                              onChange={(e) =>
+                                setSchedTime((s) => ({ ...s, [p.id]: e.target.value }))
+                              }
+                              style={S.schedInput}
+                            />
+                            <button onClick={() => schedulePost(p.id)} style={S.tinyBtn}>
+                              Schedule
+                            </button>
+                            {p.status === "scheduled" && p.scheduled_at && (
+                              <span style={S.schedBadge}>
+                                Scheduled ✓ {new Date(p.scheduled_at).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -1074,6 +1119,18 @@ const S: Record<string, React.CSSProperties> = {
   postHook: { fontFamily: "Fraunces,serif", fontSize: 13.5, color: "var(--text)" },
   postBody: { fontSize: 13.5, color: "var(--muted)", lineHeight: 1.55, whiteSpace: "pre-wrap" },
   postTags: { fontSize: 12, color: "var(--gold)", marginTop: 8 },
+  schedRow: { display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" },
+  schedInput: {
+    background: "var(--panel2)",
+    border: "1px solid var(--line)",
+    color: "var(--text)",
+    borderRadius: 7,
+    padding: "4px 8px",
+    fontSize: 11.5,
+    fontFamily: "inherit",
+    colorScheme: "dark",
+  },
+  schedBadge: { fontSize: 11, color: "var(--gold)" },
   tinyBtn: {
     background: "var(--panel2)",
     border: "1px solid var(--line)",

@@ -38,6 +38,8 @@ export interface CalendarPost {
   post: string;
   hashtags: string;
   posted: boolean;
+  status: string;
+  scheduled_at: string | null;
 }
 
 // Map a calendar_posts row to the client-facing post shape.
@@ -50,5 +52,7 @@ export function rowToPost(row: any): CalendarPost {
     post: row.post ?? "",
     hashtags: row.hashtags ?? "",
     posted: row.status === "posted",
+    status: row.status ?? "draft",
+    scheduled_at: row.scheduled_at ?? null,
   };
 }
