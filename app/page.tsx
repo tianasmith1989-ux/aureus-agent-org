@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, type ReactNode } from "react";
+import { UserButton } from "@clerk/nextjs";
 import {
   MANAGERS_META as MANAGERS,
   ALL_AGENTS_META as ALL_AGENTS,
@@ -344,7 +345,12 @@ export default function App() {
           </div>
           <div style={S.reportsTo}>
             <div style={S.reportsLabel}>REPORTS TO</div>
-            <div style={S.reportsYou}>You</div>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}
+            >
+              <div style={S.reportsYou}>You</div>
+              <UserButton />
+            </div>
           </div>
         </header>
 

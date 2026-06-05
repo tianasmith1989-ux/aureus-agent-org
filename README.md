@@ -14,7 +14,7 @@ content calendar are persisted in your Supabase Postgres database.
 This is **Step 1** of the kickoff plan:
 
 - [x] **Step 1** — Scaffold, Supabase schema, secure `/api/run` agent route, ported UI
-- [ ] Step 2 — Clerk auth (gate the app + all API routes)
+- [x] **Step 2** — Clerk auth (gates the app + every API route)
 - [ ] Step 3 — Stripe billing ($1 / 7-day trial → $14.99/mo, $99/yr)
 - [ ] Step 4 — Resend + the 7 trial emails
 - [ ] Step 5 — Ayrshare social posting + Vercel Cron
@@ -59,10 +59,21 @@ Then fill in `.env.local`:
   (set a monthly spend limit while you're there). **Required** for the agents to run.
 - **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** — from your Aureus Supabase
   project (Project Settings → API). Used server-side to persist profile / memory / calendar.
+- **`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`** and **`CLERK_SECRET_KEY`** — from the Clerk
+  dashboard → API Keys. **Required** now that auth is on: the app + every API route are
+  gated behind a Clerk session. Also set `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` and
+  `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up` so Clerk uses the in-app auth pages.
 
-> You can try the agents with just `ANTHROPIC_API_KEY` set — the app falls back to
-> the built-in default profile and skips persistence when Supabase isn't configured.
-> Add the Supabase keys to enable saving.
+> Since Step 2, **Clerk keys are required for the app to load.** The Supabase keys remain
+> optional for a quick agent test (the app falls back to the default profile and skips
+> persistence), but auth is mandatory.
+
+### Lock it down to just you
+
+This is a single-operator tool. In the **Clerk dashboard**, restrict who can get in —
+e.g. set sign-ups to **invitation-only / restricted**, or remove the public sign-up and
+add only your own user. Unauthenticated visitors are redirected to `/sign-in`; signed-in
+users see the org and can sign out via the avatar button in the header.
 
 ### 3. Create the database tables
 
