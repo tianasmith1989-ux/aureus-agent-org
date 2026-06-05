@@ -64,12 +64,18 @@ export async function POST(req: NextRequest) {
     try {
       const db = getDb();
       await db.from("calendar_posts").delete().not("id", "is", null);
-      const { data } = await db
+      const { data, error } = await db
         .from("calendar_posts")
         .insert(norm.map((n) => ({ ...n, status: "draft" })))
         .select();
-      return Response.json({ posts: (data ?? []).map(rowToPost) });
-    } catch {
+      if (error) {
+        // Surface but don't fail — fall through and return the generated posts.
+        console.error("[/api/calendar/generate] persist failed:", error.message);
+      } else {
+        return Response.json({ posts: (data ?? []).map(rowToPost) });
+      }
+    } catch (e: any) {
+      console.error("[/api/calendar/generate] persist failed:", e?.message);
       // fall through to non-persisted response
     }
   }

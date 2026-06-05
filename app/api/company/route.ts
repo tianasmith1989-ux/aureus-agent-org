@@ -13,12 +13,20 @@ export async function GET() {
   }
   try {
     const db = getDb();
-    let { data } = await db.from("company").select("profile").limit(1).maybeSingle();
-    if (!data) {
-      await db.from("company").insert({ profile: COMPANY_DEFAULT });
-      data = { profile: COMPANY_DEFAULT } as any;
+    const sel = await db.from("company").select("profile").limit(1).maybeSingle();
+    // Surface DB errors instead of silently falling back to the default profile.
+    if (sel.error) {
+      return Response.json({ profile: COMPANY_DEFAULT, persisted: false, error: sel.error.message });
     }
-    return Response.json({ profile: data!.profile, persisted: true });
+    let profile = sel.data?.profile as string | undefined;
+    if (!profile) {
+      const ins = await db.from("company").insert({ profile: COMPANY_DEFAULT });
+      if (ins.error) {
+        return Response.json({ profile: COMPANY_DEFAULT, persisted: false, error: ins.error.message });
+      }
+      profile = COMPANY_DEFAULT;
+    }
+    return Response.json({ profile, persisted: true });
   } catch (e: any) {
     return Response.json({ profile: COMPANY_DEFAULT, persisted: false, error: e?.message });
   }
@@ -42,13 +50,14 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const { data } = await db.from("company").select("id").limit(1).maybeSingle();
-    if (data?.id) {
-      await db
-        .from("company")
-        .update({ profile, updated_at: new Date().toISOString() })
-        .eq("id", data.id);
-    } else {
-      await db.from("company").insert({ profile });
+    const res = data?.id
+      ? await db
+          .from("company")
+          .update({ profile, updated_at: new Date().toISOString() })
+          .eq("id", data.id)
+      : await db.from("company").insert({ profile });
+    if (res.error) {
+      return Response.json({ error: res.error.message }, { status: 500 });
     }
     return Response.json({ ok: true, persisted: true });
   } catch (e: any) {

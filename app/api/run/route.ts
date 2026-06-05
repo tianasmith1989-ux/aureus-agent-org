@@ -102,7 +102,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: e?.message || "Agent run failed." }, { status: 500 });
   }
 
-  // 4. Persist to memory (best-effort; skipped if DB not configured)
+  // 4. Persist to memory (best-effort; never fails the run, but surface the
+  //    error so a misconfigured DB / blocked host / RLS issue is visible).
+  let persisted = false;
+  let persistError: string | null = null;
   if (isDbConfigured()) {
     try {
       const gist = Object.entries(reports)
@@ -112,16 +115,19 @@ export async function POST(req: NextRequest) {
           return `${MANAGERS_META[id].name}: ${firstLine}`;
         })
         .join(" | ");
-      await getDb().from("briefs").insert({
+      const { error } = await getDb().from("briefs").insert({
         directive,
         divisions: divisions.map((d) => MANAGERS_META[d].division).join(" + "),
         gist,
         report: reports,
       });
-    } catch {
-      // non-fatal
+      if (error) persistError = error.message;
+      else persisted = true;
+    } catch (e: any) {
+      persistError = e?.message || "persist failed";
     }
+    if (persistError) console.error("[/api/run] brief persist failed:", persistError);
   }
 
-  return Response.json({ reports });
+  return Response.json({ reports, persisted, persistError });
 }
