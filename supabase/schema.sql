@@ -56,6 +56,28 @@ create table if not exists calendar_posts (
   created_at timestamptz default now()
 );
 
+-- Stripe billing state, one row per Clerk user (Step 3).
+create table if not exists subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  clerk_user_id text unique not null,
+  stripe_customer_id text unique,
+  stripe_subscription_id text,
+  plan text,                        -- trial | monthly | annual
+  status text default 'none',       -- none | active | trialing | past_due | canceled | incomplete
+  current_period_end timestamptz,
+  updated_at timestamptz default now()
+);
+
+-- Idempotency log for the 7 trial emails (Step 4) — one row per (subscription, day).
+create table if not exists trial_emails (
+  id uuid primary key default gen_random_uuid(),
+  stripe_subscription_id text not null,
+  day int not null,                 -- 0,1,2,3,5,6,7
+  email text,
+  sent_at timestamptz default now(),
+  unique (stripe_subscription_id, day)
+);
+
 -- No profile seed here on purpose.
 -- The app auto-seeds the FULL grounding profile (COMPANY_DEFAULT from lib/roster.ts)
 -- on first load via GET /api/company when the company table is empty. Seeding a

@@ -341,6 +341,10 @@ export default function App() {
             <div style={S.sub}>
               aureusplutus.app · Premium Finance Pro{" "}
               {loaded && savedTag && <span style={{ color: "var(--ok)" }}>· saved ✓</span>}
+              {" · "}
+              <a href="/billing" style={{ color: "var(--gold)", textDecoration: "none" }}>
+                Billing
+              </a>
             </div>
           </div>
           <div style={S.reportsTo}>
