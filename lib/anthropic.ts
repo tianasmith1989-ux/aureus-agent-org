@@ -25,7 +25,7 @@ export function hasAnthropicKey(): boolean {
 export async function ask(system: string, user: string): Promise<string> {
   const msg = await getClient().messages.create({
     model: AGENT_MODEL,
-    max_tokens: 1400,
+    max_tokens: 2000,
     system,
     messages: [{ role: "user", content: user }],
   });

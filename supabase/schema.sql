@@ -56,8 +56,8 @@ create table if not exists calendar_posts (
   created_at timestamptz default now()
 );
 
--- Seed the company profile once if the table is empty.
--- The app also auto-seeds the default profile on first load, so this is optional.
-insert into company (profile)
-select 'Company: Aureus Plutus (aureusplutus.app) — see app for full profile.'
-where not exists (select 1 from company);
+-- No profile seed here on purpose.
+-- The app auto-seeds the FULL grounding profile (COMPANY_DEFAULT from lib/roster.ts)
+-- on first load via GET /api/company when the company table is empty. Seeding a
+-- placeholder row here would block that, leaving you with a stub profile — so
+-- leave `company` empty and let the app populate it (or edit it in the UI).
