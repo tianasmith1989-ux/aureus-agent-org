@@ -367,6 +367,10 @@ export default function App() {
               aureusplutus.app · Premium Finance Pro{" "}
               {loaded && savedTag && <span style={{ color: "var(--ok)" }}>· saved ✓</span>}
               {" · "}
+              <a href="/moves" style={{ color: "var(--gold)", textDecoration: "none" }}>
+                Today&apos;s Moves
+              </a>
+              {" · "}
               <a href="/billing" style={{ color: "var(--gold)", textDecoration: "none" }}>
                 Billing
               </a>

@@ -71,6 +71,18 @@ create table if not exists subscriptions (
   updated_at timestamptz default now()
 );
 
+-- Founder Cockpit — "Today's Moves" drafts (drafting only; a human posts).
+create table if not exists moves (
+  id uuid primary key default gen_random_uuid(),
+  directive text,                   -- the brief that generated this draft
+  community text,                   -- target community / channel
+  angle text,                       -- the angle for the post
+  text text,                        -- the ready-to-post draft (founder voice)
+  status text default 'draft',      -- draft | posted
+  posted_at timestamptz,
+  created_at timestamptz default now()
+);
+
 -- Idempotency log for the 7 trial emails (Step 4) — one row per (subscription, day).
 create table if not exists trial_emails (
   id uuid primary key default gen_random_uuid(),

@@ -56,6 +56,20 @@ export function calendarSys(profile: string): string {
   return `${PERSONAS.lyra}\n\nCOMPANY CONTEXT:\n${profile}\n\n${COMPLIANCE_REMINDER}\n\nYou are building a social content calendar. Respond with ONLY a JSON array, no prose, no code fences. Each element: {"day":<number>,"platform":"LinkedIn"|"X"|"Instagram","hook":"<short hook>","post":"<full ready-to-post text>","hashtags":"<space-separated, or empty>"}.`;
 }
 
+// ───────────── Founder Cockpit ("Today's Moves") ─────────────
+// Drafting only — these produce ready-to-post copy in the FOUNDER's voice for
+// communities. A human posts; nothing here auto-posts anywhere.
+
+// Scout, repurposed to pick value-first founder channels.
+export function founderScoutSys(profile: string): string {
+  return `${PERSONAS.scout}\n\nYou are operating in FOUNDER COCKPIT mode: helping the human founder of Aureus show up personally in communities with value-first, education-only posts — never ads.\n\nCOMPANY CONTEXT:\n${profile}\n\n${COMPLIANCE_REMINDER}\n\nGiven the founder's directive, choose up to 5 specific, real, appropriate Australian (and UK where relevant) personal-finance communities/channels for value-first founder posts — e.g. subreddits (r/AusFinance, r/fiaustralia), Facebook groups, LinkedIn, X. If the directive already names a target, return just that one. Respond with ONLY a JSON array, no prose, no code fences. Each element: {"community":"<name/handle>","angle":"<one-line angle for a helpful, non-promotional post>"}.`;
+}
+
+// Echo + Aria, repurposed to write one ready-to-post draft in the founder's voice.
+export function founderCopySys(profile: string): string {
+  return `${PERSONAS.echo}\n\n${PERSONAS.aria}\n\nYou are writing in FOUNDER COCKPIT mode for the human founder of Aureus Plutus — a first-person founder voice (the founder, not the brand). Warm, plain-spoken, credible, genuinely helpful, value-first. The post must NOT read like an ad; mention Aureus only lightly and only where natural (or not at all for strict no-promo communities).\n\nCOMPANY CONTEXT:\n${profile}\n\n${COMPLIANCE_REMINDER}\n\nWrite ONE ready-to-post draft for the given community and angle. Match the platform's norms (Reddit: no hashtags, no marketing speak, sound like a real person; LinkedIn: professional and value-led; X: punchy). Output ONLY the post text — no preamble, no title, no surrounding quotes.`;
+}
+
 // Tolerant JSON-array parser for model output (handles code fences and stray prose).
 export function parseArray(text: string): any[] {
   let t = (text || "").trim().replace(/```json/gi, "").replace(/```/g, "").trim();

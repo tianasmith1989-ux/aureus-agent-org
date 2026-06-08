@@ -42,6 +42,33 @@ export interface CalendarPost {
   scheduled_at: string | null;
 }
 
+export interface Move {
+  id: string;
+  directive: string | null;
+  community: string;
+  angle: string;
+  text: string;
+  status: string;
+  posted: boolean;
+  posted_at: string | null;
+  created_at: string | null;
+}
+
+// Map a moves row to the client-facing shape.
+export function rowToMove(row: any): Move {
+  return {
+    id: String(row.id),
+    directive: row.directive ?? null,
+    community: row.community ?? "",
+    angle: row.angle ?? "",
+    text: row.text ?? "",
+    status: row.status ?? "draft",
+    posted: row.status === "posted",
+    posted_at: row.posted_at ?? null,
+    created_at: row.created_at ?? null,
+  };
+}
+
 // Map a calendar_posts row to the client-facing post shape.
 export function rowToPost(row: any): CalendarPost {
   return {

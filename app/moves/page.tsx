@@ -1,0 +1,350 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+
+interface Move {
+  id: string;
+  directive: string | null;
+  community: string;
+  angle: string;
+  text: string;
+  status: string;
+  posted: boolean;
+  posted_at: string | null;
+  created_at: string | null;
+}
+
+async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let msg = "";
+    try {
+      msg = (await res.json())?.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+const EXAMPLES = [
+  "Draft my r/AusFinance founder story post — why I built Aureus.",
+  "Give me 5 value-first posts for AU finance communities.",
+  "Write a LinkedIn post on paying your mortgage off years early (education only).",
+];
+
+export default function MovesPage() {
+  const [brief, setBrief] = useState("");
+  const [moves, setMoves] = useState<Move[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    api<{ moves: Move[] }>("/api/moves")
+      .then((d) => setMoves(d.moves ?? []))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  async function generate(directive?: string) {
+    const text = (directive ?? brief).trim();
+    if (!text || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { moves: fresh } = await api<{ moves: Move[] }>("/api/moves/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ directive: text }),
+      });
+      // New drafts on top; keep any prior ones below.
+      setMoves((prev) => [...(fresh ?? []), ...prev]);
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong.");
+    }
+    setBusy(false);
+  }
+
+  function copy(m: Move) {
+    try {
+      navigator.clipboard?.writeText(m.text);
+    } catch {
+      /* ignore */
+    }
+    setCopied(m.id);
+    setTimeout(() => setCopied(null), 1400);
+  }
+
+  async function togglePosted(m: Move) {
+    const next = !m.posted;
+    setMoves((c) =>
+      c.map((x) =>
+        x.id === m.id
+          ? { ...x, posted: next, status: next ? "posted" : "draft", posted_at: next ? new Date().toISOString() : null }
+          : x,
+      ),
+    );
+    try {
+      await api("/api/moves", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: m.id, posted: next }),
+      });
+    } catch {
+      /* keep optimistic state */
+    }
+  }
+
+  async function clearAll() {
+    setMoves([]);
+    try {
+      await api("/api/moves", { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const postedCount = moves.filter((m) => m.posted).length;
+
+  return (
+    <div style={S.root}>
+      <style>{CSS}</style>
+      <div style={S.shell}>
+        <a href="/" style={S.back}>
+          ← Back to the org
+        </a>
+        <div style={S.kicker}>FOUNDER COCKPIT</div>
+        <h1 style={S.h1}>Today&apos;s Moves</h1>
+        <div style={S.sub}>
+          Brief a target → Scout picks the channel, Echo &amp; Aria draft it in your founder
+          voice. <strong style={{ color: "var(--gold-bright)" }}>Drafting only — you post.</strong>{" "}
+          Education-only, on-profile, compliant.
+        </div>
+
+        <section style={S.command}>
+          <textarea
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
+            }}
+            placeholder="e.g. draft my r/AusFinance founder story post…"
+            style={S.textarea}
+            rows={3}
+          />
+          <div style={S.cmdRow}>
+            <div style={S.phase}>
+              {busy && <span style={S.spinner} />}
+              {busy ? "Drafting your moves…" : loaded ? `${postedCount}/${moves.length} posted` : ""}
+            </div>
+            <button
+              onClick={() => generate()}
+              disabled={busy || !brief.trim()}
+              style={{ ...S.button, ...(busy || !brief.trim() ? S.buttonOff : {}) }}
+            >
+              {busy ? "Working…" : "Draft moves ▸"}
+            </button>
+          </div>
+          <div style={S.chips}>
+            {EXAMPLES.map((ex, i) => (
+              <button key={i} onClick={() => setBrief(ex)} disabled={busy} style={S.chip}>
+                {ex}
+              </button>
+            ))}
+          </div>
+          {error && <div style={S.error}>⚠ {error}</div>}
+        </section>
+
+        {moves.length > 0 && (
+          <div style={S.listHead}>
+            <span style={S.listLabel}>YOUR DRAFTS</span>
+            <button onClick={clearAll} style={S.ghostBtn}>
+              Clear
+            </button>
+          </div>
+        )}
+
+        {moves.map((m) => (
+          <div key={m.id} style={{ ...S.card, ...(m.posted ? S.cardPosted : {}) }}>
+            <div style={S.cardTop}>
+              <span style={S.community}>{m.community}</span>
+              {m.angle && <span style={S.angle}>{m.angle}</span>}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <button onClick={() => copy(m)} style={S.tinyBtn}>
+                  {copied === m.id ? "Copied ✓" : "Copy"}
+                </button>
+                <button
+                  onClick={() => togglePosted(m)}
+                  style={{ ...S.tinyBtn, ...(m.posted ? S.tinyOn : {}) }}
+                >
+                  {m.posted ? "Posted ✓" : "Mark posted"}
+                </button>
+              </div>
+            </div>
+            <div style={S.body}>{m.text}</div>
+            {m.posted && m.posted_at && (
+              <div style={S.postedAt}>Logged to CRM · {new Date(m.posted_at).toLocaleString()}</div>
+            )}
+          </div>
+        ))}
+
+        <div style={S.footer}>
+          Nothing here posts automatically. Reddit monitoring (read-only) comes in Phase 2.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+:root{--bg:#0B0A07;--panel:#14110B;--panel2:#1B170F;--line:#2A2418;--gold:#C9A227;--gold-bright:#EBCB6B;--text:#EFE8D7;--muted:#A99C86;--dim:#6B6253;--ok:#74C49A;}
+*{box-sizing:border-box;}
+@keyframes spin{to{transform:rotate(360deg);}}
+textarea::placeholder{color:var(--dim);}
+textarea:focus{outline:none;border-color:var(--gold)!important;}
+button{cursor:pointer;font-family:inherit;}
+::-webkit-scrollbar{width:8px;}::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+`;
+
+const S: Record<string, React.CSSProperties> = {
+  root: {
+    fontFamily: "'Hanken Grotesk',sans-serif",
+    background:
+      "radial-gradient(1200px 500px at 80% -10%, rgba(201,162,39,.10), transparent 60%), var(--bg)",
+    color: "var(--text)",
+    minHeight: "100vh",
+    padding: "40px 16px",
+  },
+  shell: { maxWidth: 760, margin: "0 auto" },
+  back: { color: "var(--muted)", fontSize: 13, textDecoration: "none" },
+  kicker: {
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 10,
+    letterSpacing: "3px",
+    color: "var(--gold)",
+    marginTop: 20,
+  },
+  h1: { fontFamily: "Fraunces,serif", fontWeight: 500, fontSize: 30, margin: "4px 0 8px" },
+  sub: { fontSize: 13.5, color: "var(--muted)", lineHeight: 1.6, marginBottom: 22 },
+  command: {
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 22,
+  },
+  textarea: {
+    width: "100%",
+    background: "var(--bg)",
+    border: "1px solid var(--line)",
+    borderRadius: 10,
+    color: "var(--text)",
+    padding: "12px 14px",
+    fontSize: 14.5,
+    fontFamily: "inherit",
+    resize: "vertical",
+    lineHeight: 1.5,
+  },
+  cmdRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 12,
+  },
+  phase: { fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 },
+  spinner: {
+    width: 12,
+    height: 12,
+    border: "2px solid var(--line)",
+    borderTopColor: "var(--gold)",
+    borderRadius: "50%",
+    display: "inline-block",
+    animation: "spin .8s linear infinite",
+  },
+  button: {
+    background: "var(--gold)",
+    color: "#100D06",
+    border: "none",
+    borderRadius: 9,
+    padding: "10px 20px",
+    fontWeight: 700,
+    fontSize: 14,
+  },
+  buttonOff: { background: "var(--line)", color: "var(--dim)", cursor: "not-allowed" },
+  chips: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 },
+  chip: {
+    background: "transparent",
+    border: "1px solid var(--line)",
+    color: "var(--muted)",
+    borderRadius: 20,
+    padding: "6px 12px",
+    fontSize: 11.5,
+    fontFamily: "inherit",
+    textAlign: "left",
+  },
+  error: {
+    background: "rgba(180,60,40,.12)",
+    border: "1px solid rgba(180,60,40,.4)",
+    color: "#E8A99a",
+    padding: "10px 14px",
+    borderRadius: 10,
+    fontSize: 13,
+    marginTop: 12,
+  },
+  listHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  listLabel: {
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 10,
+    letterSpacing: "2px",
+    color: "var(--gold)",
+  },
+  ghostBtn: {
+    background: "transparent",
+    border: "1px solid var(--line)",
+    color: "var(--muted)",
+    borderRadius: 8,
+    padding: "6px 12px",
+    fontSize: 12,
+  },
+  card: {
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 12,
+    padding: "14px 16px",
+    marginBottom: 12,
+  },
+  cardPosted: { opacity: 0.62, borderColor: "rgba(116,196,154,.4)" },
+  cardTop: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" },
+  community: {
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 11,
+    letterSpacing: ".5px",
+    color: "var(--gold-bright)",
+    border: "1px solid var(--line)",
+    borderRadius: 6,
+    padding: "3px 8px",
+  },
+  angle: { fontSize: 12.5, color: "var(--muted)", fontStyle: "italic" },
+  body: { fontSize: 14, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-wrap" },
+  postedAt: { fontSize: 11, color: "var(--ok)", marginTop: 10 },
+  tinyBtn: {
+    background: "var(--panel2)",
+    border: "1px solid var(--line)",
+    color: "var(--muted)",
+    borderRadius: 7,
+    padding: "4px 10px",
+    fontSize: 11,
+  },
+  tinyOn: { color: "var(--ok)", borderColor: "rgba(116,196,154,.4)" },
+  footer: { fontSize: 11.5, color: "var(--dim)", textAlign: "center", lineHeight: 1.5, marginTop: 18 },
+};
