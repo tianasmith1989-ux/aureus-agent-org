@@ -162,10 +162,15 @@ export default function MovesPage() {
     setMonBusy(true);
     setMonMsg("");
     try {
-      const r = await api<{ drafted: number; scanned: number; note?: string }>("/api/monitor/run", {
-        method: "POST",
-      });
-      setMonMsg(r.note ? r.note : `Scanned ${r.scanned}, drafted ${r.drafted} new repl${r.drafted === 1 ? "y" : "ies"}.`);
+      const r = await api<{ drafted: number; scanned: number; reddit: number; youtube: number; note?: string }>(
+        "/api/monitor/run",
+        { method: "POST" },
+      );
+      setMonMsg(
+        r.note
+          ? r.note
+          : `Scanned ${r.scanned} · drafted ${r.drafted} (Reddit ${r.reddit}, YouTube ${r.youtube}).`,
+      );
       if (r.drafted > 0) {
         const d = await api<{ moves: Move[] }>("/api/moves");
         setMoves(d.moves ?? []);

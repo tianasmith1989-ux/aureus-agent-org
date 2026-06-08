@@ -14,14 +14,16 @@ export interface MonitorResult {
   ok: boolean;
   drafted: number;
   scanned: number;
+  reddit: number;
+  youtube: number;
   note?: string;
 }
 
 export async function runMonitor(): Promise<MonitorResult> {
-  if (!isDbConfigured()) return { ok: true, drafted: 0, scanned: 0, note: "DB not configured." };
-  if (!hasAnthropicKey()) return { ok: true, drafted: 0, scanned: 0, note: "ANTHROPIC_API_KEY not set." };
+  if (!isDbConfigured()) return { ok: true, drafted: 0, scanned: 0, reddit: 0, youtube: 0, note: "DB not configured." };
+  if (!hasAnthropicKey()) return { ok: true, drafted: 0, scanned: 0, reddit: 0, youtube: 0, note: "ANTHROPIC_API_KEY not set." };
   if (!hasReddit() && !hasYouTube()) {
-    return { ok: true, drafted: 0, scanned: 0, note: "No Reddit or YouTube keys set." };
+    return { ok: true, drafted: 0, scanned: 0, reddit: 0, youtube: 0, note: "No Reddit or YouTube keys set." };
   }
 
   const db = getDb();
@@ -31,11 +33,13 @@ export async function runMonitor(): Promise<MonitorResult> {
     .eq("active", true)
     .limit(20);
   const keywords = (kws ?? []).map((k: any) => String(k.keyword)).filter(Boolean);
-  if (!keywords.length) return { ok: true, drafted: 0, scanned: 0, note: "No active keywords." };
+  if (!keywords.length) return { ok: true, drafted: 0, scanned: 0, reddit: 0, youtube: 0, note: "No active keywords." };
 
   const profile = await loadProfile();
   let drafted = 0;
   let scanned = 0;
+  let reddit = 0;
+  let youtube = 0;
 
   for (const kw of keywords) {
     if (drafted >= MAX_DRAFTS_PER_RUN) break;
@@ -86,8 +90,10 @@ export async function runMonitor(): Promise<MonitorResult> {
         source_url: h.url,
       });
       drafted += 1;
+      if (h.platform === "YouTube") youtube += 1;
+      else reddit += 1;
     }
   }
 
-  return { ok: true, drafted, scanned };
+  return { ok: true, drafted, scanned, reddit, youtube };
 }
