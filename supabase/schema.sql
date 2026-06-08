@@ -71,6 +71,21 @@ create table if not exists subscriptions (
   updated_at timestamptz default now()
 );
 
+-- Founder Cockpit — Venue Map (2a): ranked places to post, across all platforms.
+create table if not exists venues (
+  id uuid primary key default gen_random_uuid(),
+  platform text,                    -- Reddit | Facebook | Instagram | LinkedIn | TikTok | Discord | YouTube | Creator
+  name text,
+  link text,
+  size text,                        -- rough size / activity
+  fit text,                         -- why it fits the audience
+  rules text,                       -- posting rules / self-promo policy
+  angle text,                       -- the value-first angle to lead with
+  rank int default 0,               -- lower = higher priority
+  status text default 'active',     -- active | archived
+  created_at timestamptz default now()
+);
+
 -- Founder Cockpit — "Today's Moves" drafts (drafting only; a human posts).
 create table if not exists moves (
   id uuid primary key default gen_random_uuid(),
@@ -79,9 +94,14 @@ create table if not exists moves (
   angle text,                       -- the angle for the post
   text text,                        -- the ready-to-post draft (founder voice)
   status text default 'draft',      -- draft | posted
+  source text default 'founder',    -- founder | adapt | monitor
+  source_url text,                  -- for monitor: the thread/video being replied to
   posted_at timestamptz,
   created_at timestamptz default now()
 );
+-- If `moves` already exists from Phase 1, add the new columns:
+alter table moves add column if not exists source text default 'founder';
+alter table moves add column if not exists source_url text;
 
 -- Idempotency log for the 7 trial emails (Step 4) — one row per (subscription, day).
 create table if not exists trial_emails (

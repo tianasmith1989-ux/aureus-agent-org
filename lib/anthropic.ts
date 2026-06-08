@@ -34,3 +34,44 @@ export async function ask(system: string, user: string): Promise<string> {
     .join("\n")
     .trim();
 }
+
+// Model call WITH the server-side web_search tool (Anthropic runs the searches).
+// Handles the server-tool pause_turn loop. Returns the final text content.
+export async function askWithWebSearch(
+  system: string,
+  user: string,
+  maxTokens = 3500,
+): Promise<string> {
+  const client = getClient();
+  const tools = [{ type: "web_search_20250305" as const, name: "web_search" as const }];
+  const messages: { role: "user" | "assistant"; content: any }[] = [
+    { role: "user", content: user },
+  ];
+
+  let resp = await client.messages.create({
+    model: AGENT_MODEL,
+    max_tokens: maxTokens,
+    system,
+    tools,
+    messages,
+  });
+
+  // The server tool loop can pause; re-send to let it continue.
+  let guard = 0;
+  while (resp.stop_reason === "pause_turn" && guard < 5) {
+    messages.push({ role: "assistant", content: resp.content });
+    resp = await client.messages.create({
+      model: AGENT_MODEL,
+      max_tokens: maxTokens,
+      system,
+      tools,
+      messages,
+    });
+    guard += 1;
+  }
+
+  return resp.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("\n")
+    .trim();
+}

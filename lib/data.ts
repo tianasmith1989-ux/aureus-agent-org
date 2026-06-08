@@ -49,6 +49,8 @@ export interface Move {
   angle: string;
   text: string;
   status: string;
+  source: string;
+  source_url: string | null;
   posted: boolean;
   posted_at: string | null;
   created_at: string | null;
@@ -63,8 +65,40 @@ export function rowToMove(row: any): Move {
     angle: row.angle ?? "",
     text: row.text ?? "",
     status: row.status ?? "draft",
+    source: row.source ?? "founder",
+    source_url: row.source_url ?? null,
     posted: row.status === "posted",
     posted_at: row.posted_at ?? null,
+    created_at: row.created_at ?? null,
+  };
+}
+
+export interface Venue {
+  id: string;
+  platform: string;
+  name: string;
+  link: string;
+  size: string;
+  fit: string;
+  rules: string;
+  angle: string;
+  rank: number;
+  status: string;
+  created_at: string | null;
+}
+
+export function rowToVenue(row: any): Venue {
+  return {
+    id: String(row.id),
+    platform: row.platform ?? "",
+    name: row.name ?? "",
+    link: row.link ?? "",
+    size: row.size ?? "",
+    fit: row.fit ?? "",
+    rules: row.rules ?? "",
+    angle: row.angle ?? "",
+    rank: Number(row.rank) || 0,
+    status: row.status ?? "active",
     created_at: row.created_at ?? null,
   };
 }

@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
     angle: d.angle,
     text: d.text,
     status: "draft",
+    source: "founder",
+    source_url: null,
     posted: false,
     posted_at: null,
     created_at: new Date().toISOString(),

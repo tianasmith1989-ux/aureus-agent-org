@@ -371,6 +371,10 @@ export default function App() {
                 Today&apos;s Moves
               </a>
               {" · "}
+              <a href="/venues" style={{ color: "var(--gold)", textDecoration: "none" }}>
+                Venue Map
+              </a>
+              {" · "}
               <a href="/billing" style={{ color: "var(--gold)", textDecoration: "none" }}>
                 Billing
               </a>

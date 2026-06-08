@@ -9,10 +9,14 @@ interface Move {
   angle: string;
   text: string;
   status: string;
+  source?: string;
+  source_url?: string | null;
   posted: boolean;
   posted_at: string | null;
   created_at: string | null;
 }
+
+const ADAPT_PLATFORMS = ["Reddit", "Instagram", "LinkedIn", "TikTok", "YouTube", "X"];
 
 async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, opts);
@@ -42,12 +46,55 @@ export default function MovesPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // 2b — Adapt one idea across platforms
+  const [adaptOpen, setAdaptOpen] = useState(false);
+  const [source, setSource] = useState("");
+  const [adaptPlatforms, setAdaptPlatforms] = useState<Record<string, boolean>>({
+    Reddit: true,
+    Instagram: true,
+    LinkedIn: true,
+    TikTok: false,
+    YouTube: false,
+    X: false,
+  });
+  const [adaptBusy, setAdaptBusy] = useState(false);
+
   useEffect(() => {
     api<{ moves: Move[] }>("/api/moves")
       .then((d) => setMoves(d.moves ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true));
+    // Prefill the brief from a Venue Map deep-link (?prefill=...).
+    try {
+      const p = new URLSearchParams(window.location.search).get("prefill");
+      if (p) setBrief(p);
+    } catch {
+      /* ignore */
+    }
   }, []);
+
+  async function adapt() {
+    const src = source.trim();
+    const plats = Object.keys(adaptPlatforms).filter((k) => adaptPlatforms[k]);
+    if (!src || adaptBusy) return;
+    if (!plats.length) {
+      setError("Pick at least one platform to adapt for.");
+      return;
+    }
+    setAdaptBusy(true);
+    setError("");
+    try {
+      const { moves: fresh } = await api<{ moves: Move[] }>("/api/moves/adapt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: src, platforms: plats }),
+      });
+      setMoves((prev) => [...(fresh ?? []), ...prev]);
+    } catch (e: any) {
+      setError(e?.message || "Adaptation failed.");
+    }
+    setAdaptBusy(false);
+  }
 
   async function generate(directive?: string) {
     const text = (directive ?? brief).trim();
@@ -158,6 +205,50 @@ export default function MovesPage() {
           {error && <div style={S.error}>⚠ {error}</div>}
         </section>
 
+        {/* 2b — Adapt one idea across platforms */}
+        <div style={S.bar}>
+          <button onClick={() => setAdaptOpen((o) => !o)} style={S.barToggle}>
+            <span style={{ color: "var(--gold)" }}>⇄</span> Adapt one idea across platforms{" "}
+            <span style={{ color: "var(--dim)", fontSize: 11 }}>— one idea → native drafts</span>
+            <span style={{ marginLeft: "auto", color: "var(--dim)" }}>{adaptOpen ? "▾" : "▸"}</span>
+          </button>
+          {adaptOpen && (
+            <div style={{ padding: "0 14px 16px" }}>
+              <textarea
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="Paste a post or idea — agents reshape it natively per platform…"
+                style={S.textarea}
+                rows={4}
+              />
+              <div style={{ ...S.chips, marginTop: 10 }}>
+                {ADAPT_PLATFORMS.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAdaptPlatforms((s) => ({ ...s, [p]: !s[p] }))}
+                    style={{ ...S.pill, ...(adaptPlatforms[p] ? S.pillOn : {}) }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div style={{ ...S.cmdRow, marginTop: 12 }}>
+                <div style={S.phase}>
+                  {adaptBusy && <span style={S.spinner} />}
+                  {adaptBusy ? "Reshaping per platform…" : ""}
+                </div>
+                <button
+                  onClick={adapt}
+                  disabled={adaptBusy || !source.trim()}
+                  style={{ ...S.button, ...(adaptBusy || !source.trim() ? S.buttonOff : {}) }}
+                >
+                  {adaptBusy ? "Working…" : "Adapt ⇄"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {moves.length > 0 && (
           <div style={S.listHead}>
             <span style={S.listLabel}>YOUR DRAFTS</span>
@@ -171,7 +262,15 @@ export default function MovesPage() {
           <div key={m.id} style={{ ...S.card, ...(m.posted ? S.cardPosted : {}) }}>
             <div style={S.cardTop}>
               <span style={S.community}>{m.community}</span>
+              {m.source && m.source !== "founder" && (
+                <span style={S.sourceTag}>{m.source === "adapt" ? "ADAPTED" : "MONITOR"}</span>
+              )}
               {m.angle && <span style={S.angle}>{m.angle}</span>}
+              {m.source_url && (
+                <a href={m.source_url} target="_blank" rel="noreferrer" style={S.threadLink}>
+                  ↗ thread
+                </a>
+              )}
               <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                 <button onClick={() => copy(m)} style={S.tinyBtn}>
                   {copied === m.id ? "Copied ✓" : "Copy"}
@@ -335,6 +434,45 @@ const S: Record<string, React.CSSProperties> = {
     padding: "3px 8px",
   },
   angle: { fontSize: 12.5, color: "var(--muted)", fontStyle: "italic" },
+  sourceTag: {
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 8.5,
+    letterSpacing: "1px",
+    color: "var(--gold)",
+    border: "1px solid var(--line)",
+    borderRadius: 5,
+    padding: "2px 6px",
+  },
+  threadLink: { fontSize: 11.5, color: "var(--gold-bright)", textDecoration: "none" },
+  bar: {
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  barToggle: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "transparent",
+    border: "none",
+    color: "var(--text)",
+    padding: "12px 14px",
+    fontSize: 13.5,
+    fontWeight: 600,
+  },
+  pill: {
+    background: "transparent",
+    border: "1px solid var(--line)",
+    color: "var(--muted)",
+    borderRadius: 20,
+    padding: "5px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  pillOn: { borderColor: "var(--gold)", color: "var(--gold-bright)", background: "rgba(201,162,39,.08)" },
   body: { fontSize: 14, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-wrap" },
   postedAt: { fontSize: 11, color: "var(--ok)", marginTop: 10 },
   tinyBtn: {
