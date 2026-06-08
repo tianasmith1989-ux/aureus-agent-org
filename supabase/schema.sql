@@ -103,6 +103,14 @@ create table if not exists moves (
 alter table moves add column if not exists source text default 'founder';
 alter table moves add column if not exists source_url text;
 
+-- Founder Cockpit — monitoring keywords (2c): Reddit + YouTube only.
+create table if not exists monitor_keywords (
+  id uuid primary key default gen_random_uuid(),
+  keyword text not null,
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
 -- Idempotency log for the 7 trial emails (Step 4) — one row per (subscription, day).
 create table if not exists trial_emails (
   id uuid primary key default gen_random_uuid(),

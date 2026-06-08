@@ -59,11 +59,21 @@ export default function MovesPage() {
   });
   const [adaptBusy, setAdaptBusy] = useState(false);
 
+  // 2c — Monitoring (Reddit + YouTube)
+  const [monOpen, setMonOpen] = useState(false);
+  const [keywords, setKeywords] = useState<{ id: string; keyword: string }[]>([]);
+  const [newKw, setNewKw] = useState("");
+  const [monBusy, setMonBusy] = useState(false);
+  const [monMsg, setMonMsg] = useState("");
+
   useEffect(() => {
     api<{ moves: Move[] }>("/api/moves")
       .then((d) => setMoves(d.moves ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true));
+    api<{ keywords: { id: string; keyword: string }[] }>("/api/monitor/keywords")
+      .then((d) => setKeywords(d.keywords ?? []))
+      .catch(() => {});
     // Prefill the brief from a Venue Map deep-link (?prefill=...).
     try {
       const p = new URLSearchParams(window.location.search).get("prefill");
@@ -113,6 +123,57 @@ export default function MovesPage() {
       setError(e?.message || "Something went wrong.");
     }
     setBusy(false);
+  }
+
+  async function addKeyword() {
+    const kw = newKw.trim();
+    if (!kw) return;
+    setNewKw("");
+    try {
+      const { keyword } = await api<{ keyword: { id: string; keyword: string } }>(
+        "/api/monitor/keywords",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword: kw }),
+        },
+      );
+      if (keyword) setKeywords((k) => [...k, keyword]);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function removeKeyword(id: string) {
+    setKeywords((k) => k.filter((x) => x.id !== id));
+    try {
+      await api("/api/monitor/keywords", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function runMonitorNow() {
+    if (monBusy) return;
+    setMonBusy(true);
+    setMonMsg("");
+    try {
+      const r = await api<{ drafted: number; scanned: number; note?: string }>("/api/monitor/run", {
+        method: "POST",
+      });
+      setMonMsg(r.note ? r.note : `Scanned ${r.scanned}, drafted ${r.drafted} new repl${r.drafted === 1 ? "y" : "ies"}.`);
+      if (r.drafted > 0) {
+        const d = await api<{ moves: Move[] }>("/api/moves");
+        setMoves(d.moves ?? []);
+      }
+    } catch (e: any) {
+      setMonMsg(e?.message || "Monitor run failed.");
+    }
+    setMonBusy(false);
   }
 
   function copy(m: Move) {
@@ -245,6 +306,57 @@ export default function MovesPage() {
                   {adaptBusy ? "Working…" : "Adapt ⇄"}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* 2c — Monitoring (Reddit + YouTube only) */}
+        <div style={S.bar}>
+          <button onClick={() => setMonOpen((o) => !o)} style={S.barToggle}>
+            <span style={{ color: "var(--gold)" }}>◴</span> Monitoring{" "}
+            <span style={{ color: "var(--dim)", fontSize: 11 }}>— Reddit + YouTube, drafts replies</span>
+            <span style={{ marginLeft: "auto", color: "var(--dim)" }}>{monOpen ? "▾" : "▸"}</span>
+          </button>
+          {monOpen && (
+            <div style={{ padding: "0 14px 16px" }}>
+              <div style={S.monNote}>
+                Scheduled scans of Reddit &amp; YouTube for your keywords draft education-first
+                replies into the list below (MONITOR badge) for your approval. Read-only — nothing
+                posts. Other platforms have no read API.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                {keywords.map((k) => (
+                  <span key={k.id} style={S.kwChip}>
+                    {k.keyword}
+                    <button onClick={() => removeKeyword(k.id)} style={S.kwX}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {keywords.length === 0 && <span style={{ fontSize: 12, color: "var(--dim)" }}>No keywords yet.</span>}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={newKw}
+                  onChange={(e) => setNewKw(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addKeyword();
+                  }}
+                  placeholder="Add a keyword (e.g. offset account, debt snowball)…"
+                  style={{ ...S.input, flex: 1, minWidth: 200 }}
+                />
+                <button onClick={addKeyword} style={S.ghostBtn}>
+                  Add
+                </button>
+                <button
+                  onClick={runMonitorNow}
+                  disabled={monBusy}
+                  style={{ ...S.button, ...(monBusy ? S.buttonOff : {}) }}
+                >
+                  {monBusy ? "Scanning…" : "Run now ◴"}
+                </button>
+              </div>
+              {monMsg && <div style={S.monMsg}>{monMsg}</div>}
             </div>
           )}
         </div>
@@ -473,6 +585,36 @@ const S: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   pillOn: { borderColor: "var(--gold)", color: "var(--gold-bright)", background: "rgba(201,162,39,.08)" },
+  input: {
+    background: "var(--bg)",
+    border: "1px solid var(--line)",
+    borderRadius: 10,
+    color: "var(--text)",
+    padding: "10px 12px",
+    fontSize: 13.5,
+    fontFamily: "inherit",
+  },
+  monNote: { fontSize: 12, color: "var(--dim)", lineHeight: 1.6, marginBottom: 12 },
+  kwChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--panel2)",
+    border: "1px solid var(--line)",
+    borderRadius: 20,
+    padding: "4px 6px 4px 12px",
+    fontSize: 12,
+    color: "var(--text)",
+  },
+  kwX: {
+    background: "transparent",
+    border: "none",
+    color: "var(--dim)",
+    fontSize: 15,
+    lineHeight: 1,
+    padding: "0 4px",
+  },
+  monMsg: { fontSize: 12, color: "var(--ok)", marginTop: 10 },
   body: { fontSize: 14, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-wrap" },
   postedAt: { fontSize: 11, color: "var(--ok)", marginTop: 10 },
   tinyBtn: {
